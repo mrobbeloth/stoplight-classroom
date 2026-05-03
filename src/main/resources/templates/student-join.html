@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Session — Stoplight Classroom</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="container" style="padding-top: 3rem; max-width: 24rem;">
+    <h1 class="text-center">🚦 Join Session</h1>
+    <form id="joinForm" class="card">
+        <div class="form-group">
+            <label for="joinCode">Session Code</label>
+            <input type="text" id="joinCode" maxlength="6" placeholder="e.g. ABC123"
+                   style="text-transform: uppercase; letter-spacing: 0.15rem; font-size: 1.25rem; text-align: center;" required>
+        </div>
+        <div class="form-group">
+            <label for="displayName">Your Name</label>
+            <input type="text" id="displayName" placeholder="Enter your name" maxlength="50" required>
+        </div>
+        <div id="error" class="error-msg hidden"></div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Join</button>
+    </form>
+    <p class="text-center mt-1"><a href="/" style="color: var(--muted);">← Back</a></p>
+</div>
+<script>
+document.getElementById('joinForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('error');
+    errEl.classList.add('hidden');
+    const joinCode = document.getElementById('joinCode').value.trim().toUpperCase();
+    const displayName = document.getElementById('displayName').value.trim();
+    try {
+        const res = await fetch('/api/sessions/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ joinCode, displayName })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Invalid session code');
+        }
+        const data = await res.json();
+        sessionStorage.setItem('participantToken', data.participantToken);
+        sessionStorage.setItem('participantId', data.participantId);
+        sessionStorage.setItem('displayName', displayName);
+        window.location.href = '/session/' + data.sessionId;
+    } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('hidden');
+    }
+});
+</script>
+</body>
+</html>

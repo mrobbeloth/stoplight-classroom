@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session — Stoplight Classroom</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2/lib/stomp.min.js"></script>
+</head>
+<body>
+<div class="container text-center">
+    <div id="activityBanner" class="activity-banner SILENT">🔇 Silent / Teacher Talk</div>
+
+    <p id="greeting" class="text-muted mb-2"></p>
+
+    <div class="stoplight-buttons">
+        <button class="stoplight-btn green" data-value="GREEN" aria-label="I understand">
+            ✓<br>Understand
+        </button>
+        <button class="stoplight-btn yellow" data-value="YELLOW" aria-label="Partially understand">
+            ~<br>Partial
+        </button>
+        <button class="stoplight-btn red" data-value="RED" aria-label="I'm struggling">
+            ✗<br>Struggling
+        </button>
+    </div>
+
+    <p id="status" class="text-muted mt-2"></p>
+    <div id="ended" class="card hidden">
+        <p><strong>Session has ended.</strong></p>
+        <a href="/join" class="btn btn-primary mt-1">Join Another</a>
+    </div>
+</div>
+
+<script>
+const sessionId = window.location.pathname.split('/').pop();
+const token = sessionStorage.getItem('participantToken');
+const displayName = sessionStorage.getItem('displayName') || 'Student';
+
+if (!token) { window.location.href = '/join'; }
+
+document.getElementById('greeting').textContent = 'Hi, ' + displayName + '!';
+
+const modeLabels = { GROUP: '👥 Group Work', PARTNER: '🤝 Partner Work', SILENT: '🔇 Silent / Teacher Talk' };
+
+// WebSocket for activity mode updates
+const socket = new SockJS('/ws');
+const stompClient = Stomp.over(socket);
+stompClient.debug = null; // silence logs
+stompClient.connect({}, () => {
+    stompClient.subscribe('/topic/session/' + sessionId + '/activity-mode', (msg) => {
+        updateActivityMode(JSON.parse(msg.body));
+    });
+});
+
+function updateActivityMode(mode) {
+    const banner = document.getElementById('activityBanner');
+    banner.className = 'activity-banner ' + mode;
+    banner.textContent = modeLabels[mode] || mode;
+}
+
+// Stoplight buttons
+let currentValue = null;
+document.querySelectorAll('.stoplight-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const value = btn.dataset.value;
+        try {
+            const res = await fetch('/api/stoplight/' + sessionId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ value })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                if (err.error && err.error.includes('not active')) {
+                    document.getElementById('ended').classList.remove('hidden');
+                    return;
+                }
+                throw new Error(err.error || 'Error');
+            }
+            currentValue = value;
+            document.querySelectorAll('.stoplight-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('status').textContent = 'Response: ' + value;
+        } catch (err) {
+            document.getElementById('status').textContent = 'Error: ' + err.message;
+        }
+    });
+});
+
+// Fetch initial session state
+fetch('/api/sessions/' + sessionId, { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json())
+    .then(data => {
+        updateActivityMode(data.activityMode);
+        if (data.status === 'ENDED') {
+            document.getElementById('ended').classList.remove('hidden');
+        }
+    })
+    .catch(() => {});
+</script>
+</body>
+</html>

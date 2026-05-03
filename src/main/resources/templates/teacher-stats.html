@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistics — Stoplight Classroom</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<nav class="navbar">
+    <a href="/dashboard" class="navbar-brand">🚦 Stoplight Classroom</a>
+    <div>
+        <a href="/dashboard">Courses</a>
+        <a href="/dashboard/stats" style="font-weight:600;">Stats</a>
+        <a href="#" id="logoutBtn">Logout</a>
+    </div>
+</nav>
+<div class="container">
+    <h1>Statistics</h1>
+
+    <!-- Lifetime stats -->
+    <div class="card">
+        <h2>Lifetime Overview</h2>
+        <div id="lifetimeStats" class="text-muted">Loading...</div>
+    </div>
+
+    <!-- Course selector -->
+    <div class="card">
+        <h2>Course Details</h2>
+        <div class="form-group">
+            <label for="courseSelect">Select a course</label>
+            <select id="courseSelect"><option value="">-- Choose --</option></select>
+        </div>
+        <div id="courseStats" class="hidden"></div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+if (!api.getToken()) window.location.href = '/login';
+
+document.getElementById('logoutBtn').addEventListener('click', (e) => {
+    e.preventDefault(); api.clearToken(); localStorage.removeItem('refreshToken');
+    window.location.href = '/login';
+});
+
+function pct(n, total) { return total ? Math.round(n / total * 100) : 0; }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function downloadCsv(url, filename) {
+    const t = api.getToken();
+    fetch(url, { headers: { 'Authorization': 'Bearer ' + t } })
+        .then(r => r.blob())
+        .then(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+        });
+}
+
+// Lifetime stats
+api.get('/api/stats/lifetime').then(data => {
+    const total = data.totalStudentResponses || 0;
+    document.getElementById('lifetimeStats').innerHTML = `
+        <div class="aggregate">
+            <div class="aggregate-item">
+                <div class="aggregate-bar"><div class="aggregate-fill green" style="height:${pct(data.totalGreen,total)}%"></div></div>
+                <div class="aggregate-count">${data.totalGreen}</div>
+                <div class="aggregate-label">Green</div>
+            </div>
+            <div class="aggregate-item">
+                <div class="aggregate-bar"><div class="aggregate-fill yellow" style="height:${pct(data.totalYellow,total)}%"></div></div>
+                <div class="aggregate-count">${data.totalYellow}</div>
+                <div class="aggregate-label">Yellow</div>
+            </div>
+            <div class="aggregate-item">
+                <div class="aggregate-bar"><div class="aggregate-fill red" style="height:${pct(data.totalRed,total)}%"></div></div>
+                <div class="aggregate-count">${data.totalRed}</div>
+                <div class="aggregate-label">Red</div>
+            </div>
+        </div>
+        <p class="text-muted text-center">${data.courseCount} course(s) · ${data.sessionCount} session(s) · ${total} total responses</p>
+    `;
+}).catch(() => { document.getElementById('lifetimeStats').textContent = 'Error loading stats.'; });
+
+// Course list
+api.get('/api/courses').then(courses => {
+    const sel = document.getElementById('courseSelect');
+    courses.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name + (c.term ? ' (' + c.term + ')' : '');
+        sel.appendChild(opt);
+    });
+});
+
+document.getElementById('courseSelect').addEventListener('change', async (e) => {
+    const courseId = e.target.value;
+    const container = document.getElementById('courseStats');
+    if (!courseId) { container.classList.add('hidden'); return; }
+
+    try {
+        const data = await api.get('/api/stats/course/' + courseId);
+        const total = data.totalStudentResponses || 0;
+        let sessionsHtml = '';
+        if (data.sessions.length === 0) {
+            sessionsHtml = '<p class="text-muted">No completed sessions yet.</p>';
+        } else {
+            sessionsHtml = data.sessions.map(s => {
+                const sTotal = s.greenCount + s.yellowCount + s.redCount;
+                const date = new Date(s.startedAt).toLocaleDateString();
+                return `<div class="course-item">
+                    <div>
+                        <strong>${date}</strong>
+                        <span class="text-muted" style="margin-left:0.5rem;">${s.studentCount} students</span>
+                    </div>
+                    <div>
+                        <span style="color:var(--green);font-weight:600;">${s.greenCount}</span> /
+                        <span style="color:var(--yellow);font-weight:600;">${s.yellowCount}</span> /
+                        <span style="color:var(--red);font-weight:600;">${s.redCount}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        container.innerHTML = `
+            <div class="aggregate" style="margin-top:1rem;">
+                <div class="aggregate-item">
+                    <div class="aggregate-bar"><div class="aggregate-fill green" style="height:${pct(data.totalGreen,total)}%"></div></div>
+                    <div class="aggregate-count">${data.totalGreen}</div>
+                    <div class="aggregate-label">Green</div>
+                </div>
+                <div class="aggregate-item">
+                    <div class="aggregate-bar"><div class="aggregate-fill yellow" style="height:${pct(data.totalYellow,total)}%"></div></div>
+                    <div class="aggregate-count">${data.totalYellow}</div>
+                    <div class="aggregate-label">Yellow</div>
+                </div>
+                <div class="aggregate-item">
+                    <div class="aggregate-bar"><div class="aggregate-fill red" style="height:${pct(data.totalRed,total)}%"></div></div>
+                    <div class="aggregate-count">${data.totalRed}</div>
+                    <div class="aggregate-label">Red</div>
+                </div>
+            </div>
+            <p class="text-muted text-center">${data.sessionCount} session(s) · ${total} total responses</p>
+            <div class="text-center mt-1"><button class="btn btn-sm btn-primary" onclick="downloadCsv('/api/stats/course/${courseId}/csv', 'course-${courseId}.csv')">📥 Export CSV</button></div>
+            <h2 style="margin-top:1.5rem;">Sessions</h2>
+            ${sessionsHtml}
+        `;
+        container.classList.remove('hidden');
+    } catch (err) {
+        container.innerHTML = '<p class="error-msg">Error loading course stats.</p>';
+        container.classList.remove('hidden');
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Stoplight Classroom</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<nav class="navbar">
+    <a href="/dashboard" class="navbar-brand">🚦 Stoplight Classroom</a>
+    <div>
+        <a href="/dashboard/stats">Stats</a>
+        <a href="#" id="logoutBtn">Logout</a>
+    </div>
+</nav>
+<div class="container">
+    <h1>My Courses</h1>
+
+    <!-- Create course form -->
+    <div class="card">
+        <h2>New Course</h2>
+        <form id="createCourseForm" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: end;">
+            <div class="form-group" style="flex: 1; min-width: 10rem; margin-bottom: 0;">
+                <label for="courseName">Name</label>
+                <input type="text" id="courseName" placeholder="e.g. CS 101" required>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 8rem; margin-bottom: 0;">
+                <label for="courseTerm">Term</label>
+                <input type="text" id="courseTerm" placeholder="e.g. Fall 2026">
+            </div>
+            <button type="submit" class="btn btn-primary">Create</button>
+        </form>
+    </div>
+
+    <!-- Course list -->
+    <div id="courseList"></div>
+    <p id="noCourses" class="text-muted text-center hidden">No courses yet. Create one above.</p>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+if (!api.getToken()) window.location.href = '/login';
+
+document.getElementById('logoutBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    api.clearToken();
+    localStorage.removeItem('refreshToken');
+    window.location.href = '/login';
+});
+
+async function loadCourses() {
+    try {
+        const courses = await api.get('/api/courses');
+        const list = document.getElementById('courseList');
+        list.innerHTML = '';
+        if (!courses.length) {
+            document.getElementById('noCourses').classList.remove('hidden');
+            return;
+        }
+        document.getElementById('noCourses').classList.add('hidden');
+        courses.filter(c => !c.archived).forEach(c => {
+            const div = document.createElement('div');
+            div.className = 'card course-item';
+            div.innerHTML = `
+                <div>
+                    <strong>${esc(c.name)}</strong>
+                    <span class="text-muted" style="margin-left: 0.5rem;">${esc(c.term || '')}</span>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="startSession(${c.id})">Start Session</button>
+            `;
+            list.appendChild(div);
+        });
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+document.getElementById('createCourseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+        await api.post('/api/courses', {
+            name: document.getElementById('courseName').value.trim(),
+            term: document.getElementById('courseTerm').value.trim() || null
+        });
+        document.getElementById('courseName').value = '';
+        document.getElementById('courseTerm').value = '';
+        loadCourses();
+    } catch (err) { alert(err.message); }
+});
+
+async function startSession(courseId) {
+    try {
+        const session = await api.post('/api/sessions', { courseId });
+        window.location.href = '/dashboard/session/' + session.id;
+    } catch (err) { alert(err.message); }
+}
+
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+loadCourses();
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: stoplight
+      POSTGRES_USER: stoplight
+      POSTGRES_PASSWORD: stoplight
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stoplight"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://db:5432/stoplight
+      DB_USERNAME: stoplight
+      DB_PASSWORD: stoplight
+      JWT_SECRET: "change-this-in-production-must-be-at-least-256-bits-long-for-hmac!!"
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: changeme
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
