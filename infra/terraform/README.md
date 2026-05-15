@@ -46,22 +46,46 @@ The cluster needs an image in ECR before tasks can start. Order:
    copy terraform.tfvars.example terraform.tfvars
    :: edit terraform.tfvars and set github_repository
    terraform init
-   terraform apply -target=aws_ecr_repository.app
+   terraform apply -target="aws_ecr_repository.app"
    ```
+
+   > **Note on quoting:** the double quotes around the target are required in PowerShell (which interprets the `.` as a property access) and harmless in `cmd`. Without them you get `Error: Invalid target "aws_ecr_repository"`.
+
+   > **Alternative — skip the targeted apply.** If you'd rather avoid the targeted-apply warning Terraform prints, run a full `terraform apply` instead. The ECS service will fail to start (no image) but ECR, RDS, ALB, and everything else come up. Push the first image (step 2), then run `aws ecs update-service --cluster stoplight-classroom-prod-cluster --service stoplight-classroom-prod-svc --force-new-deployment --region us-east-2` to retry. Slightly more total wall-clock time (~10 extra minutes for RDS to come up before the failure surfaces), but cleaner.
 
 2. **Build and push the first image manually**
 
+   The commands below need your AWS account ID. Pick the block matching your shell.
+
+   **PowerShell:**
+
+   ```powershell
+   $ACCOUNT_ID = aws sts get-caller-identity --query Account --output text
+   $REGION = "us-east-2"
+   $REPO = "stoplight-classroom-prod"
+   $REGISTRY = "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
+
+   aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
+   docker build -t "${REPO}:latest" .
+   docker tag "${REPO}:latest" "$REGISTRY/${REPO}:latest"
+   docker push "$REGISTRY/${REPO}:latest"
+   ```
+
+   **cmd:**
+
    ```cmd
-   :: from repo root
    for /f "tokens=*" %i in ('aws sts get-caller-identity --query Account --output text') do set ACCOUNT_ID=%i
    set REGION=us-east-2
    set REPO=stoplight-classroom-prod
+   set REGISTRY=%ACCOUNT_ID%.dkr.ecr.%REGION%.amazonaws.com
 
-   aws ecr get-login-password --region %REGION% | docker login --username AWS --password-stdin %ACCOUNT_ID%.dkr.ecr.%REGION%.amazonaws.com
+   aws ecr get-login-password --region %REGION% | docker login --username AWS --password-stdin %REGISTRY%
    docker build -t %REPO%:latest .
-   docker tag %REPO%:latest %ACCOUNT_ID%.dkr.ecr.%REGION%.amazonaws.com/%REPO%:latest
-   docker push %ACCOUNT_ID%.dkr.ecr.%REGION%.amazonaws.com/%REPO%:latest
+   docker tag %REPO%:latest %REGISTRY%/%REPO%:latest
+   docker push %REGISTRY%/%REPO%:latest
    ```
+
+   Run from the **repo root**, not from `infra\terraform\`.
 
 3. **Apply the rest of the stack**
 
