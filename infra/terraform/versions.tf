@@ -12,11 +12,12 @@ terraform {
     }
   }
 
-  # Optional: configure an S3 backend for shared state. Left commented so first
-  # `terraform init` works locally; uncomment after creating the bucket/table.
+  # Remote backend. After running the one-time bootstrap stack in
+  # `bootstrap/`, copy the values from its `terraform output backend_config`
+  # into the block below and uncomment.
   #
   # backend "s3" {
-  #   bucket         = "stoplight-classroom-tfstate"
+  #   bucket         = "REPLACE-WITH-YOUR-STATE-BUCKET"
   #   key            = "prod/terraform.tfstate"
   #   region         = "us-east-2"
   #   dynamodb_table = "stoplight-classroom-tflock"

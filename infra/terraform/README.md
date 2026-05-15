@@ -26,6 +26,19 @@ Production deployment to **AWS ECS Fargate + RDS PostgreSQL + ALB**, defined in 
 
 The cluster needs an image in ECR before tasks can start. Order:
 
+0. **Set up the Terraform state backend** (one-time, ~$0/mo)
+
+   ```cmd
+   cd infra\terraform\bootstrap
+   copy terraform.tfvars.example terraform.tfvars
+   :: edit terraform.tfvars and pick a globally-unique state_bucket_name
+   terraform init
+   terraform apply
+   terraform output backend_config
+   ```
+
+   Paste the printed `backend "s3" { ... }` block into `infra/terraform/versions.tf` (replace the commented stub) and uncomment it. See `bootstrap/README.md` for full details.
+
 1. **Apply infra (creates ECR, but service will fail to start since no image exists yet)**
 
    ```cmd

@@ -1,12 +1,21 @@
-# Copy to terraform.tfvars and fill in.
+# Copy to terraform.tfvars and fill in your real values.
+#
+#   copy terraform.tfvars.example terraform.tfvars
+#
+# `terraform.tfvars` is gitignored — your secrets stay local.
 
 project     = "stoplight-classroom"
 environment = "prod"
 region      = "us-east-2"
 
-# Set this to enable the GitHub Actions OIDC deploy role.
+# GitHub repo allowed to assume the deploy role via OIDC.
 # Format: "owner/repo"
-github_repository = "your-github-user/stoplight-classroom"
+github_repository = "<your-github-username>/stoplight-classroom"
+
+# Email that receives CloudWatch alarm notifications.
+# AWS sends a confirmation email on first apply — click the link to start receiving alerts.
+# Use a real address you check; this can be a personal alias / + suffix to filter.
+alarm_email = "<your-email>"
 
 # Optional: pass an ACM cert ARN to enable HTTPS on the ALB and redirect HTTP -> HTTPS.
 # acm_certificate_arn = "arn:aws:acm:us-east-2:123456789012:certificate/..."
@@ -14,9 +23,5 @@ github_repository = "your-github-user/stoplight-classroom"
 # Optional: comma-separated CORS origin patterns. If empty, defaults to the ALB DNS over HTTP.
 # cors_allowed_origins = "https://classroom.example.com"
 
-# Email address that receives CloudWatch alarm notifications. AWS sends a
-# confirmation email after `terraform apply` — click the link to start receiving alerts.
-alarm_email = "you@example.com"
-
-# Set to false to skip the CloudWatch dashboard (~$3/mo if past the always-free allowance).
+# Optional: set to false to skip the CloudWatch dashboard (~$3/mo if past the always-free 3-dashboard allowance).
 # create_dashboard = true

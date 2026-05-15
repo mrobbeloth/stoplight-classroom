@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars and fill in.
+#   copy terraform.tfvars.example terraform.tfvars
+#
+# `terraform.tfvars` is gitignored.
+
+project = "stoplight-classroom"
+region  = "us-east-2"
+
+# S3 bucket names are GLOBALLY UNIQUE across all AWS accounts.
+# Pick something distinctive — your AWS account ID, your username, etc.
+# Example: "stoplight-classroom-tfstate-mrobbeloth-123456789012"
+state_bucket_name = "stoplight-classroom-tfstate-<your-suffix>"
