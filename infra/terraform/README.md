@@ -169,6 +169,7 @@ To enable HTTPS:
 | CloudWatch alarms (5) | ~$0 (always-free covers up to 10) |
 | CloudWatch dashboard (1) | ~$0 (always-free covers up to 3) |
 | SNS (1 topic + 1 email subscription) | ~$0 |
+| Terraform state (S3 versioned + DynamoDB on-demand) | ~$0 |
 | **Total baseline** | **~$80 / month** |
 
 NAT Gateway is the biggest avoidable cost. To remove it, add VPC endpoints for ECR (api + dkr), CloudWatch Logs, Secrets Manager, and S3 — that's a follow-up.

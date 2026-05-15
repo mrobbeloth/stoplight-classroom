@@ -21,6 +21,17 @@ A digital implementation of the stoplight active learning method for college cla
 
 See [PLAN.md](PLAN.md) for the full specification and implementation roadmap.
 
+## Deploying to AWS
+
+Production deployment uses ECS Fargate + RDS PostgreSQL + ALB, defined in Terraform under [`infra/terraform/`](infra/terraform/). See [`infra/terraform/README.md`](infra/terraform/README.md) for the full runbook (~$80/mo, ~30 min for first deploy).
+
+The flow at a glance:
+
+1. Bootstrap the Terraform state backend ([`infra/terraform/bootstrap/`](infra/terraform/bootstrap/))
+2. Apply ECR, push the first image manually
+3. Apply the rest of the stack
+4. Wire `AWS_DEPLOY_ROLE_ARN` into GitHub Actions; subsequent pushes to `main` deploy automatically
+
 ## License
 
 TBD
