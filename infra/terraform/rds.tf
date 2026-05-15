@@ -10,9 +10,12 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "main" {
   identifier = "${local.name_prefix}-db"
 
-  engine         = "postgres"
-  engine_version = "16.3"
-  instance_class = var.db_instance_class
+  engine = "postgres"
+  # Major-version pin only. AWS picks the current default minor and
+  # `auto_minor_version_upgrade = true` keeps it current during maintenance.
+  # Avoids breakage when AWS retires older minor versions from `CreateDBInstance`.
+  engine_version       = "16"
+  instance_class       = var.db_instance_class
 
   allocated_storage     = var.db_allocated_storage
   max_allocated_storage = 100
@@ -38,6 +41,14 @@ resource "aws_db_instance" "main" {
   final_snapshot_identifier  = var.db_deletion_protection ? "${local.name_prefix}-final" : null
 
   performance_insights_enabled = true
+
+  # Ignore the concrete minor version after creation. We pin the major only;
+  # AWS minor upgrades happen during the maintenance window per
+  # `auto_minor_version_upgrade = true`. Without this, every plan would show
+  # drift between "16" and the running "16.x".
+  lifecycle {
+    ignore_changes = [engine_version]
+  }
 
   tags = {
     Name = "${local.name_prefix}-db"

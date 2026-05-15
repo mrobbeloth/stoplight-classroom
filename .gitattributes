@@ -1,0 +1,47 @@
+# Default: let git decide line endings on a per-file basis.
+* text=auto
+
+# Shell scripts must use LF — running with CRLF inside a Linux container
+# (e.g. the Docker build) fails with "exit 127: command not found" because
+# the kernel reads the shebang literally including \r.
+*.sh           text eol=lf
+gradlew        text eol=lf
+
+# Batch / PowerShell scripts use CRLF — they only ever run on Windows.
+*.bat          text eol=crlf
+*.cmd          text eol=crlf
+*.ps1          text eol=crlf
+
+# Source code — keep LF so diffs are clean across platforms.
+*.java         text eol=lf
+*.kt           text eol=lf
+*.kts          text eol=lf
+*.swift        text eol=lf
+*.py           text eol=lf
+*.go           text eol=lf
+*.ts           text eol=lf
+*.js           text eol=lf
+*.json         text eol=lf
+*.yml          text eol=lf
+*.yaml         text eol=lf
+*.xml          text eol=lf
+*.html         text eol=lf
+*.css          text eol=lf
+*.md           text eol=lf
+*.tf           text eol=lf
+*.tfvars       text eol=lf
+Dockerfile     text eol=lf
+*.properties   text eol=lf
+
+# Binary files — never touch.
+*.jar          binary
+*.war          binary
+*.png          binary
+*.jpg          binary
+*.jpeg         binary
+*.gif          binary
+*.ico          binary
+*.zip          binary
+*.tar          binary
+*.gz           binary
+*.pdf          binary

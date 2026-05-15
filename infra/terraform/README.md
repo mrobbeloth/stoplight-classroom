@@ -18,9 +18,31 @@ Production deployment to **AWS ECS Fargate + RDS PostgreSQL + ALB**, defined in 
 ## Prerequisites
 
 - Terraform ≥ 1.6
-- AWS account with admin credentials configured locally (`aws configure` or `AWS_PROFILE`)
-- Docker Desktop (only needed for the first manual image push)
+- AWS credentials configured locally (`aws configure` or `AWS_PROFILE`)
+- The credentials must have **broad permissions** for the initial bootstrap. Terraform creates VPC, IAM roles, RDS, ECS, ECR, ALB, CloudWatch, SNS, and Secrets Manager resources. The simplest path is `AdministratorAccess` on the bootstrap user; you can detach it after the initial deploy since GitHub Actions takes over via the much narrower OIDC role created by this stack. See "If you hit AccessDenied" below.
+- Docker Desktop running (only needed for the first manual image push)
 - A GitHub repo for this codebase (for CI/CD)
+
+### If you hit AccessDenied
+
+If `terraform apply` fails with something like
+`User: ... is not authorized to perform: iam:CreateRole`, your IAM user lacks bootstrap permissions. Quickest fix:
+
+```powershell
+aws iam attach-user-policy `
+  --user-name <your-iam-user> `
+  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+```
+
+Re-run `terraform apply`. After the stack is up and the GitHub Actions deploy is working, optionally detach the policy:
+
+```powershell
+aws iam detach-user-policy `
+  --user-name <your-iam-user> `
+  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+```
+
+Day-to-day ops only need permissions for what you're doing (logs, ECS describe/update, Secrets Manager read).
 
 ## One-time bootstrap
 
