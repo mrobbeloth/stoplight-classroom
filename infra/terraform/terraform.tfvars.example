@@ -18,10 +18,19 @@ github_repository = "<your-github-username>/stoplight-classroom"
 alarm_email = "<your-email>"
 
 # Optional: pass an ACM cert ARN to enable HTTPS on the ALB and redirect HTTP -> HTTPS.
+# Not needed if you set domain_name below — the cert is created and validated automatically.
 # acm_certificate_arn = "arn:aws:acm:us-east-2:123456789012:certificate/..."
 
-# Optional: comma-separated CORS origin patterns. If empty, defaults to the ALB DNS over HTTP.
-# cors_allowed_origins = "https://classroom.example.com"
+# Domain name registered in Route 53. Setting this creates:
+#   - ACM certificate (DNS-validated automatically)
+#   - A/AAAA alias records pointing at the ALB
+#   - www.domain alias records
+#   - HTTPS listener on the ALB with HTTP → HTTPS redirect
+# Leave empty to skip DNS/TLS entirely.
+# domain_name = "stoplightonline.com"
+
+# Optional: comma-separated CORS origin patterns. If empty, defaults to https://domain or http://alb-dns.
+# cors_allowed_origins = "https://stoplightonline.com"
 
 # Optional: set to false to skip the CloudWatch dashboard (~$3/mo if past the always-free 3-dashboard allowance).
 # create_dashboard = true

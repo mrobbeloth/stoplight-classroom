@@ -192,15 +192,32 @@ The Spring app uses Spring's in-memory STOMP broker (`enableSimpleBroker`). Mult
 
 ALB sticky sessions are enabled in this stack, which keeps a given client pinned to one task and is fine for the **single-task** configuration used here. To run more than one task, swap `enableSimpleBroker` for an external broker (Amazon MQ for RabbitMQ or a self-hosted ActiveMQ) and use `enableStompBrokerRelay`. That work is tracked separately.
 
-## TLS / custom domain (later)
+## TLS / custom domain
 
-To enable HTTPS:
+To enable HTTPS with a Route 53 domain:
 
-1. Request an ACM certificate in `us-east-2` for your domain (DNS-validated).
-2. Set `acm_certificate_arn` in `terraform.tfvars`.
-3. `terraform apply`. The HTTP listener will start redirecting to HTTPS.
-4. Point a Route 53 alias record at the ALB DNS name.
-5. Update `cors_allowed_origins` to your real domain.
+1. Set `domain_name` in `terraform.tfvars`:
+
+   ```hcl
+   domain_name = "stoplightonline.com"
+   ```
+
+2. Run `terraform apply`. This will:
+   - Look up the Route 53 hosted zone
+   - Request an ACM certificate for the domain (+ www subdomain)
+   - Create DNS validation records (automatic, no console clicks)
+   - Wait for the cert to validate (~2–5 min)
+   - Add A/AAAA alias records pointing at the ALB
+   - Create an HTTPS listener on the ALB
+   - Redirect all HTTP → HTTPS
+
+3. After apply finishes, `terraform output app_url` gives you `https://stoplightonline.com`.
+
+4. The CORS origin is auto-detected from the domain — no need to set `cors_allowed_origins` unless you have additional origins.
+
+**Note:** DNS propagation takes a few minutes. The cert validation is usually fast (<5 min) since both the cert and the validation records are in the same AWS account.
+
+To use a manually-provisioned ACM cert (e.g., cross-account or from a different CA), skip `domain_name` and set `acm_certificate_arn` instead. You'll need to create DNS records manually in that case.
 
 ## Cost estimate (us-east-2, on-demand, ballpark)
 

@@ -1,7 +1,7 @@
 locals {
   image_uri = var.container_image != "" ? var.container_image : "${aws_ecr_repository.app.repository_url}:latest"
 
-  alb_default_origin = "http://${aws_lb.main.dns_name}"
+  alb_default_origin = local.create_dns ? "https://${var.domain_name}" : "http://${aws_lb.main.dns_name}"
   cors_origins = var.cors_allowed_origins != "" ? var.cors_allowed_origins : local.alb_default_origin
 
   db_url = "jdbc:postgresql://${aws_db_instance.main.address}:${aws_db_instance.main.port}/${var.db_name}"

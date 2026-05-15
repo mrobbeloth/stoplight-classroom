@@ -1,3 +1,14 @@
+locals {
+  # Whether HTTPS should be enabled — derived purely from input variables so
+  # `count` arguments can be evaluated at plan time.
+  enable_https = local.create_dns || var.acm_certificate_arn != ""
+
+  # The cert ARN to use on the HTTPS listener. Prefers the cert created in
+  # dns.tf (which forces a wait on validation), otherwise falls back to a
+  # manually-supplied ARN.
+  effective_cert_arn = local.create_dns ? aws_acm_certificate_validation.main[0].certificate_arn : var.acm_certificate_arn
+}
+
 resource "aws_lb" "main" {
   name               = "${local.name_prefix}-alb"
   load_balancer_type = "application"
@@ -52,10 +63,10 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
 
   default_action {
-    type = var.acm_certificate_arn != "" ? "redirect" : "forward"
+    type = local.enable_https ? "redirect" : "forward"
 
     dynamic "redirect" {
-      for_each = var.acm_certificate_arn != "" ? [1] : []
+      for_each = local.enable_https ? [1] : []
       content {
         port        = "443"
         protocol    = "HTTPS"
@@ -63,18 +74,18 @@ resource "aws_lb_listener" "http" {
       }
     }
 
-    target_group_arn = var.acm_certificate_arn != "" ? null : aws_lb_target_group.app.arn
+    target_group_arn = local.enable_https ? null : aws_lb_target_group.app.arn
   }
 }
 
 resource "aws_lb_listener" "https" {
-  count = var.acm_certificate_arn != "" ? 1 : 0
+  count = local.enable_https ? 1 : 0
 
   load_balancer_arn = aws_lb.main.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.acm_certificate_arn
+  certificate_arn   = local.effective_cert_arn
 
   default_action {
     type             = "forward"
