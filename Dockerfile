@@ -14,5 +14,5 @@ RUN chown -R app:app /app
 USER app
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD wget -qO- http://localhost:8080/api/auth/login || exit 1
+    CMD wget -qO- http://localhost:8080/actuator/health || exit 1
 ENTRYPOINT ["java", "-jar", "app.jar", "--spring.profiles.active=prod"]

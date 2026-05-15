@@ -279,7 +279,7 @@ User (id, username, passwordHash, role[ADMIN|TEACHER], createdAt, updatedAt)
 - [x] Security audit (CORS, CSP, rate limiting, input validation)
 - [x] Dockerfile + Docker Compose finalization
 - [x] GitHub Actions CI/CD pipeline
-- [ ] Cloud deployment (manual — requires cloud account setup)
+- [x] Cloud deployment — AWS ECS Fargate + RDS PostgreSQL + ALB (Terraform in `infra/terraform/`)
 
 ### Phase 6 — Future
 - [x] Native macOS client (Swift/SwiftUI consuming REST API) — scaffold with API client
