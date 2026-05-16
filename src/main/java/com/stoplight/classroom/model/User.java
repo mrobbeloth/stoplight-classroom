@@ -21,6 +21,22 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    /**
+     * Account lifecycle status. Defaults to {@link UserStatus#APPROVED} so users seeded
+     * or created directly by an admin are immediately usable. The public teacher signup
+     * flow sets this to {@link UserStatus#PENDING} explicitly.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserStatus status = UserStatus.APPROVED;
+
+    /**
+     * Optional email address. Required (and unique) for users created via the public
+     * teacher signup flow; null for the seeded admin and other admin-created users.
+     */
+    @Column(unique = true)
+    private String email;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -30,6 +46,9 @@ public class User {
     void onCreate() {
         createdAt = Instant.now();
         updatedAt = createdAt;
+        if (status == null) {
+            status = UserStatus.APPROVED;
+        }
     }
 
     @PreUpdate
@@ -55,6 +74,12 @@ public class User {
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
+
+    public UserStatus getStatus() { return status; }
+    public void setStatus(UserStatus status) { this.status = status; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

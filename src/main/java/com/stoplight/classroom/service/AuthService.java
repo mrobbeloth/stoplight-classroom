@@ -2,6 +2,7 @@ package com.stoplight.classroom.service;
 
 import com.stoplight.classroom.dto.AuthResponse;
 import com.stoplight.classroom.model.User;
+import com.stoplight.classroom.model.UserStatus;
 import com.stoplight.classroom.repository.UserRepository;
 import com.stoplight.classroom.security.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +27,7 @@ public class AuthService {
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid credentials");
         }
+        ensureLoginAllowed(user);
         String accessToken = jwtUtil.generateAccessToken(user.getUsername(), user.getRole().name());
         String refreshToken = jwtUtil.generateRefreshToken(user.getUsername());
         return new AuthResponse(accessToken, refreshToken);
@@ -39,8 +41,23 @@ public class AuthService {
         String username = claims.getSubject();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        ensureLoginAllowed(user);
         String newAccess = jwtUtil.generateAccessToken(user.getUsername(), user.getRole().name());
         String newRefresh = jwtUtil.generateRefreshToken(user.getUsername());
         return new AuthResponse(newAccess, newRefresh);
+    }
+
+    /**
+     * Reject login for accounts that aren't APPROVED. Public teacher signups land in
+     * PENDING and require admin approval; rejected accounts are explicitly disabled.
+     */
+    private void ensureLoginAllowed(User user) {
+        UserStatus status = user.getStatus();
+        if (status == UserStatus.PENDING) {
+            throw new IllegalArgumentException("Account is pending admin approval");
+        }
+        if (status == UserStatus.REJECTED) {
+            throw new IllegalArgumentException("Account has been rejected");
+        }
     }
 }

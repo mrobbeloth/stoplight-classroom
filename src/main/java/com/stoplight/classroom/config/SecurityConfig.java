@@ -38,7 +38,8 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/ws/**").permitAll()
-                .requestMatchers("/", "/join", "/session/**", "/login", "/dashboard", "/dashboard/**",
+                .requestMatchers("/", "/join", "/session/**", "/login", "/signup",
+                        "/dashboard", "/dashboard/**", "/admin/**",
                         "/css/**", "/js/**", "/favicon.ico").permitAll()
                 .requestMatchers(HttpMethod.GET, "/h2-console/**").permitAll()
                 .anyRequest().authenticated()

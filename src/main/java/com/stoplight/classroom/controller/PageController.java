@@ -19,6 +19,9 @@ public class PageController {
     @GetMapping("/login")
     public String teacherLogin() { return "teacher-login"; }
 
+    @GetMapping("/signup")
+    public String teacherSignup() { return "teacher-signup"; }
+
     @GetMapping("/dashboard")
     public String dashboard() { return "teacher-dashboard"; }
 
@@ -27,4 +30,7 @@ public class PageController {
 
     @GetMapping("/dashboard/stats")
     public String stats() { return "teacher-stats"; }
+
+    @GetMapping("/admin/teacher-signups")
+    public String adminTeacherSignups() { return "admin-teacher-signups"; }
 }
