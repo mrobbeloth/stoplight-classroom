@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Signups — Admin</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<nav class="navbar">
+    <a href="/" class="navbar-brand">🚦 Stoplight Classroom — Admin</a>
+    <div>
+        <a href="#" id="logoutBtn">Logout</a>
+    </div>
+</nav>
+<div class="container">
+    <h1>Pending Teacher Signups</h1>
+    <p class="text-muted">Approve or reject teacher accounts that signed up via <code>/signup</code>.</p>
+
+    <div id="status" class="hidden"></div>
+    <div id="signupList"></div>
+    <p id="noSignups" class="text-muted text-center hidden">No pending signups.</p>
+
+    <h2 style="margin-top: 2rem;">View by status</h2>
+    <select id="statusFilter">
+        <option value="PENDING" selected>Pending</option>
+        <option value="APPROVED">Approved</option>
+        <option value="REJECTED">Rejected</option>
+    </select>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+if (!api.getToken()) window.location.href = '/login';
+
+document.getElementById('logoutBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    api.clearToken();
+    localStorage.removeItem('refreshToken');
+    window.location.href = '/login';
+});
+
+async function load() {
+    const status = document.getElementById('statusFilter').value;
+    const list = document.getElementById('signupList');
+    list.innerHTML = '';
+    try {
+        const items = await api.get('/api/admin/teacher-signups?status=' + encodeURIComponent(status));
+        if (!items.length) {
+            document.getElementById('noSignups').classList.remove('hidden');
+            return;
+        }
+        document.getElementById('noSignups').classList.add('hidden');
+        items.forEach(s => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
+            div.style.alignItems = 'center';
+            div.style.gap = '0.5rem';
+            const created = new Date(s.createdAt).toLocaleString();
+            div.innerHTML = `
+                <div>
+                    <strong>${esc(s.username)}</strong>
+                    <span class="text-muted" style="margin-left: 0.5rem;">${esc(s.email || '')}</span>
+                    <div class="text-muted" style="font-size: 0.85em;">Requested ${esc(created)} · ${esc(s.status)}</div>
+                </div>
+                <div></div>
+            `;
+            const actions = div.lastElementChild;
+            if (s.status === 'PENDING') {
+                const approve = document.createElement('button');
+                approve.className = 'btn btn-primary btn-sm';
+                approve.textContent = 'Approve';
+                approve.onclick = () => act(s.id, 'approve');
+                const reject = document.createElement('button');
+                reject.className = 'btn btn-sm';
+                reject.style.marginLeft = '0.5rem';
+                reject.textContent = 'Reject';
+                reject.onclick = () => act(s.id, 'reject');
+                actions.appendChild(approve);
+                actions.appendChild(reject);
+            }
+            list.appendChild(div);
+        });
+    } catch (err) {
+        showStatus(err.message || 'Failed to load signups', true);
+    }
+}
+
+async function act(id, action) {
+    try {
+        await api.post('/api/admin/teacher-signups/' + id + '/' + action, {});
+        showStatus('Signup ' + action + 'd.', false);
+        load();
+    } catch (err) {
+        showStatus(err.message || 'Action failed', true);
+    }
+}
+
+function showStatus(msg, isError) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.style.color = isError ? '#c33' : 'var(--accent, #2a7)';
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 4000);
+}
+
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : s;
+    return d.innerHTML;
+}
+
+document.getElementById('statusFilter').addEventListener('change', load);
+load();
+</script>
+</body>
+</html>

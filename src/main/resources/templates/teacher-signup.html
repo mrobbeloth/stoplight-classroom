@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Sign Up — Stoplight Classroom</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="container" style="padding-top: 3rem; max-width: 26rem;">
+    <h1 class="text-center">🚦 Teacher Sign Up</h1>
+    <p class="text-muted text-center" style="margin-top: -0.5rem;">
+        A school <code>.edu</code> email is required. An administrator will review your request before you can log in.
+    </p>
+    <form id="signupForm" class="card">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" required autocomplete="username" minlength="3" maxlength="50">
+        </div>
+        <div class="form-group">
+            <label for="email">School email</label>
+            <input type="email" id="email" required autocomplete="email" placeholder="you@school.edu">
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" required autocomplete="new-password" minlength="8" maxlength="128">
+        </div>
+        <div id="error" class="error-msg hidden"></div>
+        <div id="success" class="hidden" style="color: var(--accent, #2a7); margin-bottom: 0.5rem;"></div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Request Account</button>
+    </form>
+    <p class="text-center mt-1">
+        <a href="/login" style="color: var(--muted);">Already approved? Log in</a>
+        &nbsp;·&nbsp;
+        <a href="/" style="color: var(--muted);">← Back</a>
+    </p>
+</div>
+<script src="/js/api.js"></script>
+<script>
+document.getElementById('signupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('error');
+    const okEl = document.getElementById('success');
+    errEl.classList.add('hidden');
+    okEl.classList.add('hidden');
+    try {
+        await api.post('/api/auth/teacher/signup', {
+            username: document.getElementById('username').value.trim(),
+            email: document.getElementById('email').value.trim(),
+            password: document.getElementById('password').value
+        });
+        okEl.textContent = 'Request submitted. You will be able to log in once an administrator approves your account.';
+        okEl.classList.remove('hidden');
+        document.getElementById('signupForm').reset();
+    } catch (err) {
+        errEl.textContent = err.message || 'Signup failed';
+        errEl.classList.remove('hidden');
+    }
+});
+</script>
+</body>
+</html>
