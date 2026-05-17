@@ -28,12 +28,13 @@ class LocalTeacherSignupProviderTest {
 
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private EmailService emailService;
 
     private LocalTeacherSignupProvider provider;
 
     @BeforeEach
     void setUp() {
-        provider = new LocalTeacherSignupProvider(userRepository, passwordEncoder, ".edu");
+        provider = new LocalTeacherSignupProvider(userRepository, passwordEncoder, emailService, ".edu");
     }
 
     @Test
@@ -98,7 +99,7 @@ class LocalTeacherSignupProviderTest {
 
     @Test
     void requestSignup_multipleAllowedSuffixes_acceptsAny() {
-        provider = new LocalTeacherSignupProvider(userRepository, passwordEncoder, ".edu, .ac.uk");
+        provider = new LocalTeacherSignupProvider(userRepository, passwordEncoder, emailService, ".edu, .ac.uk");
         var req = new TeacherSignupRequest("prof_smith", "smith@cam.ac.uk", "password1");
         when(userRepository.existsByUsername("prof_smith")).thenReturn(false);
         when(userRepository.existsByEmail("smith@cam.ac.uk")).thenReturn(false);

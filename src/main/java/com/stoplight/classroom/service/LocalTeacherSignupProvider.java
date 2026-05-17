@@ -28,14 +28,17 @@ public class LocalTeacherSignupProvider implements TeacherSignupProvider {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
     private final List<String> allowedEmailSuffixes;
 
     public LocalTeacherSignupProvider(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
+            EmailService emailService,
             @Value("${stoplight.auth.allowed-email-suffixes:.edu}") String allowedSuffixes) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
         this.allowedEmailSuffixes = Arrays.stream(allowedSuffixes.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
@@ -63,7 +66,12 @@ public class LocalTeacherSignupProvider implements TeacherSignupProvider {
                 Role.TEACHER);
         user.setEmail(email);
         user.setStatus(UserStatus.PENDING);
-        return TeacherSignupResponse.from(userRepository.save(user));
+        User saved = userRepository.save(user);
+
+        emailService.sendSignupReceived(saved.getEmail(), saved.getUsername());
+        emailService.sendAdminSignupAlert(saved.getUsername(), saved.getEmail());
+
+        return TeacherSignupResponse.from(saved);
     }
 
     @Override
@@ -100,7 +108,15 @@ public class LocalTeacherSignupProvider implements TeacherSignupProvider {
                     "Signup is not pending (current status: " + user.getStatus() + ")");
         }
         user.setStatus(target);
-        return TeacherSignupResponse.from(userRepository.save(user));
+        User saved = userRepository.save(user);
+
+        if (target == UserStatus.APPROVED) {
+            emailService.sendApproved(saved.getEmail(), saved.getUsername());
+        } else if (target == UserStatus.REJECTED) {
+            emailService.sendRejected(saved.getEmail(), saved.getUsername());
+        }
+
+        return TeacherSignupResponse.from(saved);
     }
 
     private boolean hasAllowedSuffix(String email) {
