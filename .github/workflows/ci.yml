@@ -97,7 +97,20 @@ jobs:
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
 
+      - name: Capture current task definition for rollback
+        id: capture-previous
+        run: |
+          set -euo pipefail
+          previous=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query "services[0].taskDefinition" \
+            --output text)
+          echo "previous_task_def=$previous" >> "$GITHUB_OUTPUT"
+          echo "Captured previous task definition: $previous"
+
       - name: Deploy to ECS
+        id: deploy
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.render-task-def.outputs.task-definition }}
@@ -106,6 +119,7 @@ jobs:
           wait-for-service-stability: true
 
       - name: Smoke test — production health
+        id: smoke-test
         env:
           HEALTH_URL: https://stoplightonline.com/actuator/health
         run: |
@@ -126,3 +140,21 @@ jobs:
           done
           echo "Smoke test failed: production health did not return UP after 6 attempts"
           exit 1
+
+      - name: Rollback ECS service on failure
+        if: failure() && steps.capture-previous.outputs.previous_task_def != ''
+        env:
+          PREVIOUS_TASK_DEF: ${{ steps.capture-previous.outputs.previous_task_def }}
+        run: |
+          set -euo pipefail
+          echo "Rolling service $ECS_SERVICE back to $PREVIOUS_TASK_DEF"
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$PREVIOUS_TASK_DEF" \
+            --force-new-deployment >/dev/null
+          echo "Waiting for rollback to stabilize (this can take several minutes)..."
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"
+          echo "Rollback completed. Service is running $PREVIOUS_TASK_DEF again."
