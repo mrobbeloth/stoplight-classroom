@@ -104,3 +104,25 @@ jobs:
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
+
+      - name: Smoke test — production health
+        env:
+          HEALTH_URL: https://stoplightonline.com/actuator/health
+        run: |
+          set -euo pipefail
+          # ECS already reported stable, but DNS/ALB propagation can lag a few seconds.
+          # Retry up to 6 times (~1 minute total). Fail the workflow if health stays down
+          # so a bad rollout doesn't get marked as a successful deploy.
+          for attempt in 1 2 3 4 5 6; do
+            response=$(curl -sS --max-time 10 -w "\n%{http_code}" "$HEALTH_URL" || true)
+            status=$(printf '%s' "$response" | tail -n1)
+            body=$(printf '%s' "$response" | sed '$d')
+            echo "attempt $attempt: status=$status body=$body"
+            if [ "$status" = "200" ] && printf '%s' "$body" | grep -q '"status":"UP"'; then
+              echo "Smoke test passed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Smoke test failed: production health did not return UP after 6 attempts"
+          exit 1
