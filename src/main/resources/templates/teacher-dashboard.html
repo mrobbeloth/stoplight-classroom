@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard — Stoplight Classroom</title>
     <link rel="stylesheet" href="/css/app.css">
+    <style>
+        .active-banner { border-left: 4px solid var(--green); display: flex;
+            justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        .active-banner .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .history-toggle { font-size: 0.875rem; margin-left: 0.5rem; cursor: pointer;
+            background: none; border: none; color: var(--muted); padding: 0; }
+        .history-toggle:hover { color: var(--text); }
+        .history-list { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border);
+            font-size: 0.875rem; flex-basis: 100%; }
+        .history-list .row { display: flex; justify-content: space-between;
+            padding: 0.25rem 0; color: var(--muted); }
+    </style>
 </head>
 <body>
 <nav class="navbar">
@@ -16,6 +28,18 @@
 </nav>
 <div class="container">
     <h1>My Courses</h1>
+
+    <!-- Active session banner (shown only when teacher has an ACTIVE session) -->
+    <div class="card active-banner hidden" id="activeBanner">
+        <div>
+            <div><strong>🟢 Active session</strong> in <span id="activeCourseName">…</span></div>
+            <div class="text-muted">Join code: <strong id="activeJoinCode">------</strong></div>
+        </div>
+        <div class="actions">
+            <a id="resumeLink" class="btn btn-primary btn-sm" href="#">Resume</a>
+            <button id="endActiveBtn" class="btn btn-danger btn-sm">End</button>
+        </div>
+    </div>
 
     <!-- Create course form -->
     <div class="card">
@@ -42,6 +66,9 @@
 <script>
 if (!api.getToken()) window.location.href = '/login';
 
+let activeSession = null;
+let courses = [];
+
 document.getElementById('logoutBtn').addEventListener('click', (e) => {
     e.preventDefault();
     api.clearToken();
@@ -49,32 +76,85 @@ document.getElementById('logoutBtn').addEventListener('click', (e) => {
     window.location.href = '/login';
 });
 
+async function loadActiveSession() {
+    try {
+        // 200 with body if active, 204 (returns null via api.js) otherwise.
+        activeSession = await api.get('/api/sessions/active');
+    } catch (err) {
+        console.error(err);
+        activeSession = null;
+    }
+}
+
+function renderActiveBanner() {
+    const banner = document.getElementById('activeBanner');
+    if (!activeSession) { banner.classList.add('hidden'); return; }
+    const course = courses.find(c => c.id === activeSession.courseId);
+    document.getElementById('activeCourseName').textContent = course ? course.name : '(unknown course)';
+    document.getElementById('activeJoinCode').textContent = activeSession.joinCode;
+    document.getElementById('resumeLink').href = '/dashboard/session/' + activeSession.id;
+    banner.classList.remove('hidden');
+}
+
+document.getElementById('endActiveBtn').addEventListener('click', async () => {
+    if (!activeSession) return;
+    if (!confirm('End the active session?')) return;
+    try {
+        await api.put('/api/sessions/' + activeSession.id + '/end');
+        activeSession = null;
+        renderActiveBanner();
+        await loadCourses();
+    } catch (err) { alert(err.message); }
+});
+
 async function loadCourses() {
     try {
-        const courses = await api.get('/api/courses');
+        courses = await api.get('/api/courses') || [];
         const list = document.getElementById('courseList');
         list.innerHTML = '';
-        if (!courses.length) {
+        const visible = courses.filter(c => !c.archived);
+        if (!visible.length) {
             document.getElementById('noCourses').classList.remove('hidden');
+            renderActiveBanner();
             return;
         }
         document.getElementById('noCourses').classList.add('hidden');
-        courses.filter(c => !c.archived).forEach(c => {
-            const div = document.createElement('div');
-            div.className = 'card course-item';
-            div.innerHTML = `
-                <div>
-                    <strong>${esc(c.name)}</strong>
-                    <span class="text-muted" style="margin-left: 0.5rem;">${esc(c.term || '')}</span>
-                </div>
-                <button class="btn btn-primary btn-sm" onclick="startSession(${c.id})">Start Session</button>
-            `;
-            list.appendChild(div);
-        });
+        visible.forEach(c => list.appendChild(renderCourseCard(c)));
+        renderActiveBanner();
     } catch (err) {
         console.error(err);
     }
 }
+
+function renderCourseCard(c) {
+    const div = document.createElement('div');
+    div.className = 'card course-item';
+    div.style.flexWrap = 'wrap';
+
+    const isActive = activeSession && activeSession.courseId === c.id;
+    const startBtn = isActive
+        ? `<a href="/dashboard/session/${activeSession.id}" class="btn btn-primary btn-sm">Resume Session</a>`
+        : `<button class="btn btn-primary btn-sm" data-action="start" data-course-id="${c.id}">Start Session</button>`;
+
+    div.innerHTML = `
+        <div>
+            <strong>${esc(c.name)}</strong>
+            <span class="text-muted" style="margin-left: 0.5rem;">${esc(c.term || '')}</span>
+            <button type="button" class="history-toggle" data-action="history" data-course-id="${c.id}">History ▾</button>
+        </div>
+        ${startBtn}
+        <div class="history-list hidden" id="history-${c.id}"></div>
+    `;
+    return div;
+}
+
+document.getElementById('courseList').addEventListener('click', (e) => {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+    const courseId = Number(target.dataset.courseId);
+    if (target.dataset.action === 'start') startSession(courseId);
+    else if (target.dataset.action === 'history') toggleHistory(courseId);
+});
 
 document.getElementById('createCourseForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -85,7 +165,7 @@ document.getElementById('createCourseForm').addEventListener('submit', async (e)
         });
         document.getElementById('courseName').value = '';
         document.getElementById('courseTerm').value = '';
-        loadCourses();
+        await loadCourses();
     } catch (err) { alert(err.message); }
 });
 
@@ -93,16 +173,57 @@ async function startSession(courseId) {
     try {
         const session = await api.post('/api/sessions', { courseId });
         window.location.href = '/dashboard/session/' + session.id;
-    } catch (err) { alert(err.message); }
+    } catch (err) {
+        // 409: an active session already exists. Send the teacher straight to it.
+        if (err.status === 409 && err.body && err.body.session && err.body.session.id) {
+            window.location.href = '/dashboard/session/' + err.body.session.id;
+            return;
+        }
+        alert(err.message);
+    }
+}
+
+async function toggleHistory(courseId) {
+    const container = document.getElementById('history-' + courseId);
+    if (!container) return;
+    if (!container.classList.contains('hidden')) {
+        container.classList.add('hidden');
+        return;
+    }
+    container.classList.remove('hidden');
+    container.innerHTML = '<div class="text-muted">Loading…</div>';
+    try {
+        const sessions = await api.get('/api/courses/' + courseId + '/sessions') || [];
+        if (!sessions.length) {
+            container.innerHTML = '<div class="text-muted">No sessions yet.</div>';
+            return;
+        }
+        container.innerHTML = sessions.map(s => `
+            <div class="row">
+                <span>${formatDate(s.startedAt)} · ${esc(s.status)}</span>
+                <a href="/dashboard/session/${s.id}">View</a>
+            </div>
+        `).join('');
+    } catch (err) {
+        container.innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+    }
+}
+
+function formatDate(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleString(); } catch { return iso; }
 }
 
 function esc(s) {
     const d = document.createElement('div');
-    d.textContent = s;
+    d.textContent = s == null ? '' : String(s);
     return d.innerHTML;
 }
 
-loadCourses();
+(async function init() {
+    await loadActiveSession();
+    await loadCourses();
+})();
 </script>
 </body>
 </html>

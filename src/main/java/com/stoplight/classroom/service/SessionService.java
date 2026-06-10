@@ -1,6 +1,7 @@
 package com.stoplight.classroom.service;
 
 import com.stoplight.classroom.dto.*;
+import com.stoplight.classroom.exception.ActiveSessionExistsException;
 import com.stoplight.classroom.exception.ResourceNotFoundException;
 import com.stoplight.classroom.model.*;
 import com.stoplight.classroom.repository.*;
@@ -10,22 +11,27 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class SessionService {
 
     private final SessionRepository sessionRepository;
     private final StudentParticipantRepository participantRepository;
+    private final UserRepository userRepository;
     private final CourseService courseService;
     private final StudentAccountService studentAccountService;
     private final JwtUtil jwtUtil;
 
     public SessionService(SessionRepository sessionRepository,
                           StudentParticipantRepository participantRepository,
+                          UserRepository userRepository,
                           CourseService courseService, StudentAccountService studentAccountService,
                           JwtUtil jwtUtil) {
         this.sessionRepository = sessionRepository;
         this.participantRepository = participantRepository;
+        this.userRepository = userRepository;
         this.courseService = courseService;
         this.studentAccountService = studentAccountService;
         this.jwtUtil = jwtUtil;
@@ -33,12 +39,15 @@ public class SessionService {
 
     @Transactional
     public SessionResponse startSession(String teacherUsername, StartSessionRequest request) {
-        if (sessionRepository.existsByCourseTeacherIdAndStatus(
-                courseService.findOwned(teacherUsername, request.courseId()).getTeacher().getId(),
-                SessionStatus.ACTIVE)) {
-            throw new IllegalArgumentException("Teacher already has an active session");
-        }
         Course course = courseService.findOwned(teacherUsername, request.courseId());
+        Long teacherId = course.getTeacher().getId();
+
+        Optional<Session> existing = sessionRepository
+                .findByCourseTeacherIdAndStatus(teacherId, SessionStatus.ACTIVE);
+        if (existing.isPresent()) {
+            throw new ActiveSessionExistsException(SessionResponse.from(existing.get()));
+        }
+
         String joinCode = generateUniqueCode();
         Session session = new Session(course, joinCode);
         return SessionResponse.from(sessionRepository.save(session));
@@ -86,6 +95,28 @@ public class SessionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found")));
     }
 
+    /**
+     * Returns the calling teacher's currently ACTIVE session, if any.
+     * Used by the dashboard to surface a Resume affordance after navigation away.
+     */
+    public Optional<SessionResponse> getActiveSessionForTeacher(String teacherUsername) {
+        User teacher = findTeacher(teacherUsername);
+        return sessionRepository
+                .findByCourseTeacherIdAndStatus(teacher.getId(), SessionStatus.ACTIVE)
+                .map(SessionResponse::from);
+    }
+
+    /**
+     * Returns the teacher's sessions for a course, newest first. Throws if the teacher
+     * does not own the course.
+     */
+    public List<SessionResponse> listSessionsForCourse(String teacherUsername, Long courseId) {
+        // Ownership / 404 check.
+        courseService.findOwned(teacherUsername, courseId);
+        return sessionRepository.findByCourseIdOrderByStartedAtDesc(courseId).stream()
+                .map(SessionResponse::from).toList();
+    }
+
     Session findOwnedActiveSession(String teacherUsername, Long sessionId) {
         Session session = findOwnedSession(teacherUsername, sessionId);
         if (session.getStatus() != SessionStatus.ACTIVE) {
@@ -99,6 +130,11 @@ public class SessionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found"));
         courseService.findOwned(teacherUsername, session.getCourse().getId());
         return session;
+    }
+
+    private User findTeacher(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     private String generateUniqueCode() {

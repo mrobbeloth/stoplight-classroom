@@ -14,8 +14,11 @@ const api = {
         const res = await fetch(url, opts);
         if (res.status === 401) { this.clearToken(); window.location.href = '/login'; return; }
         if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: res.statusText }));
-            throw new Error(err.error || JSON.stringify(err));
+            const errBody = await res.json().catch(() => ({ error: res.statusText }));
+            const e = new Error(errBody.error || JSON.stringify(errBody));
+            e.status = res.status;
+            e.body = errBody;
+            throw e;
         }
         if (res.status === 204) return null;
         return res.json();

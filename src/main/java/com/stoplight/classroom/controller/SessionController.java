@@ -35,6 +35,13 @@ public class SessionController {
                 .body(sessionService.startSession(auth.getName(), request));
     }
 
+    @GetMapping("/active")
+    public ResponseEntity<SessionResponse> getActive(Authentication auth) {
+        return sessionService.getActiveSessionForTeacher(auth.getName())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @PutMapping("/{id}/end")
     public ResponseEntity<SessionResponse> end(Authentication auth, @PathVariable Long id) {
         SessionResponse response = sessionService.endSession(auth.getName(), id);

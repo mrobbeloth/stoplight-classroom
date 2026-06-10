@@ -23,4 +23,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleIllegalArg(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
     }
+
+    @ExceptionHandler(ActiveSessionExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleActiveSessionExists(ActiveSessionExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", ex.getMessage(), "session", ex.getSession()));
+    }
 }
