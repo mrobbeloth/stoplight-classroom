@@ -168,12 +168,13 @@ class SessionFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         Long sessionId = objectMapper.readTree(sessionBody).get("id").asLong();
 
-        // Second session fails
+        // Second session fails with 409 and includes the existing session in the body
         mockMvc.perform(post("/api/sessions")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new StartSessionRequest(courseId))))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.session.id").value(sessionId));
 
         // End first, then start another
         mockMvc.perform(put("/api/sessions/" + sessionId + "/end")

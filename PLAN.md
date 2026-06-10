@@ -49,7 +49,9 @@ Stoplight Classroom is a digital implementation of the stoplight active learning
 | SESS-2 | Starting a session generates a unique, short-lived join code. |
 | SESS-3 | Students join by entering the join code on the web page. |
 | SESS-4 | A teacher can have at most one active session at a time. |
-| SESS-5 | The teacher can end a session, which locks further responses. |
+| SESS-5 | The teacher can end a session, which locks further responses. Ending is reachable both from the live session page and from the dashboard. |
+| SESS-6 | A teacher can resume an in-progress session (return to the live view) at any time before it is ended. The dashboard surfaces the active session and offers a Resume action. Starting a new session while one is already active returns the existing session so the client can route there. |
+| SESS-7 | The dashboard shows session history per course (read-only links to past sessions). |
 
 ### 4.4 Stoplight Comprehension Feedback
 
@@ -205,11 +207,14 @@ User (id, username, passwordHash, role[ADMIN|TEACHER], createdAt, updatedAt)
 - `GET /api/courses/{id}/stats` — course-level stats
 
 ### Sessions
-- `POST /api/sessions` — start session (returns join code)
+- `POST /api/sessions` — start session (returns join code). Returns `409 Conflict` with `{ error, session }` if the teacher already has an ACTIVE session, so clients can offer Resume.
+- `GET /api/sessions/active` — current teacher's ACTIVE session, or `204 No Content` if none.
+- `GET /api/sessions/{id}` — fetch a session.
 - `PUT /api/sessions/{id}/end` — end session
 - `PUT /api/sessions/{id}/activity-mode` — set activity mode
 - `GET /api/sessions/{id}/stats` — session stats
 - `POST /api/sessions/join` — student joins with code + display name
+- `GET /api/courses/{id}/sessions` — past + current sessions for a course (newest first), owning teacher only.
 
 ### Stoplight
 - `POST /api/stoplight` — submit/update response (student)

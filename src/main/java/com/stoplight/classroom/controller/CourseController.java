@@ -2,7 +2,9 @@ package com.stoplight.classroom.controller;
 
 import com.stoplight.classroom.dto.CourseResponse;
 import com.stoplight.classroom.dto.CreateCourseRequest;
+import com.stoplight.classroom.dto.SessionResponse;
 import com.stoplight.classroom.service.CourseService;
+import com.stoplight.classroom.service.SessionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,9 +18,11 @@ import java.util.List;
 public class CourseController {
 
     private final CourseService courseService;
+    private final SessionService sessionService;
 
-    public CourseController(CourseService courseService) {
+    public CourseController(CourseService courseService, SessionService sessionService) {
         this.courseService = courseService;
+        this.sessionService = sessionService;
     }
 
     @PostMapping
@@ -48,5 +52,10 @@ public class CourseController {
     public ResponseEntity<Void> archive(Authentication auth, @PathVariable Long id) {
         courseService.archive(auth.getName(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/sessions")
+    public ResponseEntity<List<SessionResponse>> sessions(Authentication auth, @PathVariable Long id) {
+        return ResponseEntity.ok(sessionService.listSessionsForCourse(auth.getName(), id));
     }
 }
